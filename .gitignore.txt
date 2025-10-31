@@ -1,0 +1,15 @@
+# Cachés de modelos (muy pesados - no subir)
+MODEL_CACHE/
+__pycache__/
+*.pyc
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Entornos virtuales
+venv/
+env/
+
+# Archivos temporales
+*.tmp
+*.log
