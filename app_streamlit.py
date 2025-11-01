@@ -21,10 +21,10 @@ st.set_page_config(
     page_title="Consultas PNCIL - RAG",
     page_icon="📋",
     layout="wide",
-    initial_sidebar_state="collapsed" # Colapsar sidebar
+    initial_sidebar_state="collapsed"
 )
 
-# CSS personalizado (SOLUCIÓN AL TEXTO BLANCO)
+# CSS personalizado
 st.markdown("""
 <style>
     .main {
@@ -37,7 +37,7 @@ st.markdown("""
         border-left: 4px solid #2196F3;
         margin: 10px 0;
         font-size: 14px;
-        color: #1a1a1a; /* Asegurar color de texto oscuro */
+        color: #1a1a1a;
     }
     .response-card {
         background: white;
@@ -47,7 +47,7 @@ st.markdown("""
         margin: 20px 0;
         font-size: 16px;
         line-height: 1.6;
-        color: #1a1a1a; /* FUERZA TEXTO OSCURO para visibilidad */
+        color: #1a1a1a;
     }
     .header-title {
         text-align: center;
@@ -96,7 +96,6 @@ def load_documents_and_index():
     """Carga documentos y crea índice FAISS"""
     # Cargar documentos
     documents = []
-    # RUTA DE CARGA DEL JSONL
     with open(r"C:\Users\agarmendia\Desktop\PNCIL_TinyLlama\pncil_documents.jsonl", 'r', encoding='utf-8') as f:
         for line in f:
             doc = json.loads(line)
@@ -113,39 +112,24 @@ def load_documents_and_index():
     
     return index, documents
 
-# Variables globales iniciales
-index, documents = None, None
-embedding_model, generator = None, None
-
-# Asignar modelos a variables globales después de la carga
-@st.cache_resource
-def initialize_globals():
-    global index, documents, embedding_model, generator
-    embedding_model, generator = load_models()
-    index, documents = load_documents_and_index()
-    return True
-
-# Ejecutar la carga y asignar a las variables globales
-with st.spinner("Cargando modelos y documentos..."):
-    initialize_globals()
-    st.session_state['loaded'] = True
-
-
-# Funciones del RAG (CÓDIGO ÍNTEGRO DEL JUPYTER)
+# Funciones del RAG
 def retrieve_documents(query: str, k: int = K_DOCS_FIJO):
     """Recupera los 'k' documentos más relevantes (k=6 fijo)"""
-    # El modelo de embedding, index y documents son globales
+    # Obtener modelos desde cache
+    embedding_model, _ = load_models()
+    index, documents = load_documents_and_index()
+    
     query_embedding = embedding_model.encode([query])
     query_embedding = np.array(query_embedding, dtype='float32')
     
-    # Usamos K_DOCS_FIJO (6)
     distances, indices = index.search(query_embedding, k)
     
     return [documents[i] for i in indices[0]]
 
 def generate_answer(query: str, retrieved_docs: list):
     """Genera respuesta basada en documentos recuperados"""
-    # El generador y tokenizer son globales
+    # Obtener generador desde cache
+    _, generator = load_models()
     
     context = " ".join(retrieved_docs)
     context_limit = 2000
@@ -153,7 +137,7 @@ def generate_answer(query: str, retrieved_docs: list):
         context = context[:context_limit] + "..."
     
     # INSTRUCCIÓN ESTRICTA DEL NOTEBOOK
-    system_instruction = "Eres un asistente de preguntas y respuestas. Tu única fuente de conocimiento es el 'Contexto' proporcionado. Debes responder la 'Pregunta' basándote estrictamente en el contexto. Si la respuesta no está en el contexto, debes decir 'No tengo información suficiente para responder a esa pregunta.'."
+    system_instruction = "Eres un asistente de preguntas y respuestas cuya ÚNICA fuente de conocimiento es el 'Contexto' proporcionado. Debes responder la 'Pregunta' basandote estrictamente en el contexto, extrae SOLAMENTE esa información. Si el contexto NO PERMITE una respuesta fidedigna, debes responder EXCLUSIVAMENTE: 'No tengo información suficiente para responder a esa pregunta.'."
     
     user_prompt = f"Contexto: {context}\n\nPregunta: {query}"
     prompt = f"<s>[INST] <<SYS>> {system_instruction} <</SYS>> {user_prompt} [/INST]"
@@ -171,7 +155,7 @@ def generate_answer(query: str, retrieved_docs: list):
     
     answer = generated_output[0]['generated_text']
     
-    # LÓGICA DE LIMPIEZA FINAL DEL NOTEBOOK (Anti-tags)
+    # LÓGICA DE LIMPIEZA FINAL DEL NOTEBOOK
     if "[/INST]" in answer:
         cleaned_answer = answer.split("[/INST]")[1].strip()
         
@@ -192,8 +176,13 @@ def generate_answer(query: str, retrieved_docs: list):
     
     return cleaned_answer
 
+# Cargar modelos al inicio
+with st.spinner("Cargando modelos y documentos..."):
+    load_models()
+    load_documents_and_index()
+    st.session_state['loaded'] = True
 
-# ============= INTERFAZ STREAMLIT SIN SLIDERS =============
+# ============= INTERFAZ STREAMLIT =============
 
 # Header
 st.markdown('<div class="header-title">📋 Consultas PNCIL</div>', unsafe_allow_html=True)
@@ -203,7 +192,7 @@ st.markdown("---")
 # Main content
 query = st.text_area(
     "Tu consulta:",
-    value='', # Sin pregunta modelo
+    value='',
     height=100,
     placeholder="Escribe tu pregunta sobre PNCIL...",
     key="query_input"
@@ -248,3 +237,4 @@ st.markdown("""
     <p style='font-size: 12px;'>Powered by TinyLlama 1.1B + SentenceTransformers + FAISS</p>
 </div>
 """, unsafe_allow_html=True)
+
